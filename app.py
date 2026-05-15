@@ -1,0 +1,85 @@
+from datetime import datetime, timedelta, timezone
+import streamlit as st
+import pandas as pd
+from streamlit_calendar import calendar
+import os
+from datetime import datetime
+
+FILE = "child_ben_log.csv"
+
+st.set_page_config(page_title="幼児 排便記録", layout="centered")
+
+st.title("🧸 幼児 排便記録アプリ")
+
+# データ読み込み
+if os.path.exists(FILE):
+    df = pd.read_csv(FILE)
+else:
+    df = pd.DataFrame(columns=["日時","硬さ","量","色","出血","メモ"])
+
+# -------------------
+# カレンダー表示（フォームの外）
+# -------------------
+st.subheader("📅 排便カレンダー")
+
+events = []
+for _, row in df.iterrows():
+    events.append({
+        "title": "🟢 排便",
+        "start": row["日時"][:10]
+    })
+
+calendar_options = {
+    "initialView": "dayGridMonth",
+    "locale": "ja",
+    "headerToolbar": {
+        "left": "prev,next today",
+        "center": "title",
+        "right": ""
+    }
+}
+
+calendar(events=events, options=calendar_options)
+
+# -------------------
+# 入力フォーム
+# -------------------
+with st.form("record_form"):
+    st.subheader("記録する")
+
+    JST = timezone(timedelta(hours=9))
+    now = datetime.now(JST)
+    st.write("記録時刻:", now.strftime("%Y-%m-%d %H:%M"))
+
+    hardness = st.slider("硬さ（1やわらかい〜7かたい）", 1, 7, 4)
+    amount = st.radio("量", ["少", "中", "多"])
+    color = st.selectbox("色", ["黄", "茶", "濃茶", "黒", "緑"])
+    blood = st.checkbox("出血あり")
+    memo = st.text_input("メモ")
+
+    submitted = st.form_submit_button("記録する")
+
+    if submitted:
+        new_data = {
+            "日時": now.strftime("%Y-%m-%d %H:%M"),
+            "硬さ": hardness,
+            "量": amount,
+            "色": color,
+            "出血": blood,
+            "メモ": memo
+        }
+
+        df = pd.concat([df, pd.DataFrame([new_data])], ignore_index=True)
+        df.to_csv(FILE, index=False)
+        st.success("記録しました！")
+
+# -------------------
+# 履歴
+# -------------------
+st.subheader("履歴")
+
+if not df.empty:
+    st.dataframe(df.sort_values("日時", ascending=False), use_container_width=True)
+    st.line_chart(df["硬さ"])
+else:
+    st.info("まだ記録がありません")
